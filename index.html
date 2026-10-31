@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="STEADYGRIP: mango estabilizador para comer sin derramar. Probá el simulador, jugá y respondé la trivia.">
+<meta property="og:title" content="STEADYGRIP">
+<meta property="og:description" content="Mango estabilizador hecho por 7mo C del Inst. Técnico Gral Belgrano F29.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>STEADYGRIP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: una sola columna pensada para el celular que llega por el QR.
+   Abre con el banco de pruebas (dos vistas del prototipo + panel de control + juego)
+   y sigue con cómo funciona, el temblor y la trivia. */
+:root{
+  --bg:#F0F4F3;
+  --surface:#FFFFFF;
+  --surface-2:#E4EEEB;
+  --ink:#132723;
+  --muted:#4A5D58;
+  --line:#D3DFDB;
+  --accent:#0F766E;
+  --accent-deep:#0B5750;
+  --accent-soft:#DDEFEB;
+  --on-accent:#FFFFFF;
+  --tremor:#C2410C;
+  --tremor-line:#EA7A3A;
+  --tremor-soft:#FCEADF;
+  --stage:#E7F0EE;
+  --stage-grid:#D2E1DD;
+  --obj-handle:#FBFCFC;
+  --obj-handle-edge:#9EADA9;
+  --obj-part:#D7E0DD;
+  --obj-part-edge:#869793;
+  --obj-servo:#2B302F;
+  --obj-steel:#A9B4B1;
+  --obj-steel-edge:#73817D;
+  --obj-sensor:#1F4FA8;
+  --lentil:#B4641E;
+  --opt-1:#C0392B;
+  --opt-2:#1D5FB4;
+  --opt-3:#1E7F48;
+  --opt-4:#E8B72A;
+  --opt-ink:#FFFFFF;
+  --opt-4-ink:#2A2208;
+  --font-display:"Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-data:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1513; --surface:#14201D; --surface-2:#1A2926; --ink:#E4EEEA; --muted:#9BB0AA; --line:#263632;
+    --accent:#33B5A8; --accent-deep:#8FD9CF; --accent-soft:#143834; --on-accent:#04201C;
+    --tremor:#F39A63; --tremor-line:#F08A4B; --tremor-soft:#3A2418;
+    --stage:#10201C; --stage-grid:#1F302C;
+    --obj-handle:#E3EAE8; --obj-handle-edge:#8A9B97; --obj-part:#B6C3BF; --obj-part-edge:#6B7D78;
+    --obj-servo:#4A5250; --obj-steel:#B3BEBB; --obj-steel-edge:#7E8B87; --obj-sensor:#4A7FE0; --lentil:#D88C3F;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1513; --surface:#14201D; --surface-2:#1A2926; --ink:#E4EEEA; --muted:#9BB0AA; --line:#263632;
+  --accent:#33B5A8; --accent-deep:#8FD9CF; --accent-soft:#143834; --on-accent:#04201C;
+  --tremor:#F39A63; --tremor-line:#F08A4B; --tremor-soft:#3A2418;
+  --stage:#10201C; --stage-grid:#1F302C;
+  --obj-handle:#E3EAE8; --obj-handle-edge:#8A9B97; --obj-part:#B6C3BF; --obj-part-edge:#6B7D78;
+  --obj-servo:#4A5250; --obj-steel:#B3BEBB; --obj-steel-edge:#7E8B87; --obj-sensor:#4A7FE0; --lentil:#D88C3F;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-text-size-adjust:100%}
+a{color:var(--accent-deep)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+p{margin:0}
+
+.wrap{max-width:600px;margin:0 auto;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:28px 56px;display:flex;flex-direction:column;gap:44px}
+
+/* Encabezado y apertura */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+.brand{font-weight:800;letter-spacing:.06em;color:var(--accent-deep);font-size:1rem}
+.school{font-size:.85rem;color:var(--muted);font-weight:600}
+.hero{display:flex;flex-direction:column;gap:14px;margin-top:-20px}
+.hero h1{font-size:clamp(2.05rem, 8.6vw, 3rem);font-weight:800;line-height:1.03;letter-spacing:-.035em}
+.lead{font-size:1.06rem;color:var(--muted);max-width:60ch}
+.jump{display:flex;flex-wrap:wrap;gap:8px}
+.jump a{padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--accent-deep);font-weight:700;text-decoration:none;font-size:.9rem}
+
+/* Banco de pruebas */
+.bench{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-margin-top:12px}
+.bench-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bench-head h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.tag{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--tremor-soft);color:var(--tremor);font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.tag.ok{background:var(--accent-soft);color:var(--accent-deep)}
+.hint{font-size:.92rem;color:var(--muted)}
+
+.seg{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:4px;padding:4px;border-radius:14px;background:var(--surface-2)}
+.seg button{min-height:44px;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);font:inherit;font-weight:700;cursor:pointer}
+.seg button.on{background:var(--surface);border-color:var(--line);color:var(--ink)}
+
+.views{position:relative;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px}
+.view{margin:0;border-radius:14px;background:var(--stage);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.view svg{display:block;width:100%;height:auto}
+.view figcaption{font-size:.74rem;font-weight:700;color:var(--muted);text-align:center;padding:0 6px 8px;line-height:1.3}
+.chip{position:absolute;left:8px;top:8px;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums}
+
+.sv-level{stroke:var(--accent);stroke-width:.9;stroke-dasharray:3 3;opacity:.7}
+.sv-cable{fill:none;stroke:var(--obj-servo);stroke-width:3;stroke-linecap:round}
+.sv-handle{fill:var(--obj-handle);stroke:var(--obj-handle-edge);stroke-width:1.2}
+.sv-seam{stroke:var(--obj-handle-edge);stroke-width:.7;opacity:.6}
+.sv-mark{fill:var(--tremor-line)}
+.sv-part{fill:var(--obj-part);stroke:var(--obj-part-edge);stroke-width:1}
+.sv-servo{fill:var(--obj-servo)}
+.sv-servo-in{fill:none;stroke:var(--obj-part-edge);stroke-width:.8}
+.sv-sensor{fill:var(--obj-sensor)}
+.sv-neck{stroke:var(--obj-steel);stroke-width:3;stroke-linecap:round}
+.sv-bowl{fill:var(--obj-steel);stroke:var(--obj-steel-edge);stroke-width:1}
+.sv-lent{fill:var(--lentil)}
+
+.readouts{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px}
+.ro{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:var(--surface-2);min-width:0}
+.lbl{font-size:.8rem;font-weight:800;color:var(--muted)}
+.val{font-family:var(--font-data);font-size:1.2rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+.val.ok{color:var(--accent)}
+.val.bad{color:var(--tremor)}
+
+.pad{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair;border-radius:14px;user-select:none;-webkit-user-select:none}
+.pad-bg{fill:var(--stage);stroke:var(--line);stroke-width:1}
+.pad-grid{stroke:var(--stage-grid);stroke-width:1}
+.pad-axis{stroke:var(--obj-part-edge);stroke-width:1;stroke-dasharray:3 4;opacity:.6}
+.pad-txt{fill:var(--muted);font-family:var(--font-body);font-size:10px;font-weight:700}
+.pad-mano{fill:var(--accent);stroke:var(--surface);stroke-width:3}
+.pad-tg circle{stroke-width:2;stroke-dasharray:4 3;transform-box:fill-box;transform-origin:center;animation:pulso 1.2s ease-in-out infinite}
+.pad-tg.boca circle{fill:var(--tremor-soft);stroke:var(--tremor)}
+.pad-tg.plato circle{fill:var(--surface);stroke:var(--obj-part-edge)}
+.pad-tg text{font-family:var(--font-body);font-size:8.5px;font-weight:800;text-anchor:middle}
+.pad-tg.boca text{fill:var(--tremor)}
+.pad-tg.plato text{fill:var(--muted)}
+.pad-plus{fill:var(--accent);font-family:var(--font-data);font-size:13px;font-weight:600;text-anchor:middle}
+@keyframes pulso{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+.hud{display:flex;flex-direction:column;gap:8px}
+.hud-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hud-t{font-weight:700;color:var(--muted)}
+.hud-t b{font-family:var(--font-data);font-size:1.15rem;color:var(--ink)}
+.bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.bar div{height:100%;width:100%;background:var(--accent)}
+.hud-pts{font-weight:700}
+.hud-pts b{font-family:var(--font-data);font-size:1.15rem;color:var(--accent)}
+
+.controls{display:flex;flex-direction:column;gap:10px}
+.sec{display:flex;gap:10px}
+.sec > *{flex:1 1 0;min-width:0}
+.toggle,.ghost{min-height:56px;border-radius:14px;border:2px solid transparent;font:inherit;cursor:pointer;padding:8px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+.toggle b{font-size:1rem;font-weight:800}
+.toggle small{font-size:.78rem;font-weight:600;opacity:.85}
+.toggle.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.toggle.off{background:transparent;border-color:var(--tremor);color:var(--tremor)}
+.ghost{background:var(--surface-2);color:var(--accent-deep);font-weight:800}
+.ghost.alert{background:var(--tremor-soft);color:var(--tremor)}
+.note{font-size:.88rem;color:var(--muted)}
+.status{font-weight:700;color:var(--accent-deep);min-height:1.55em}
+
+.game{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:var(--surface-2)}
+.game h3{font-size:1.2rem;font-weight:800}
+.result{display:flex;flex-direction:column;gap:6px}
+.res-row{display:flex;justify-content:space-between;gap:10px;font-weight:700}
+.res-row b{font-family:var(--font-data);font-size:1.1rem}
+.res-bar{height:12px;border-radius:6px;background:var(--surface);overflow:hidden}
+.res-bar div{height:100%;width:0;transition:width .8s ease}
+.res-bar .sin{background:var(--tremor-line)}
+.res-bar .con{background:var(--accent)}
+
+/* Secciones de lectura */
+.block{display:flex;flex-direction:column;gap:14px;scroll-margin-top:16px}
+.block h2{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.block > p{max-width:62ch}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.steps li{display:grid;grid-template-columns:40px minmax(0, 1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}
+.steps .n{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-deep);font-family:var(--font-data);font-weight:600}
+.steps h3{font-size:1.1rem;font-weight:800;margin-bottom:2px}
+.steps p{color:var(--muted)}
+.loop-note{padding:12px 14px;border-radius:12px;background:var(--accent-soft);color:var(--accent-deep);font-weight:600}
+.specs{margin:0;display:grid}
+.specs div{display:grid;grid-template-columns:6.5rem minmax(0, 1fr);gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.specs dt{font-weight:800}
+.specs dd{margin:0;color:var(--muted);min-width:0}
+.facts{list-style:none;margin:0;padding:0;display:grid}
+.facts li{display:grid;grid-template-columns:6.5rem minmax(0, 1fr);gap:12px;align-items:baseline;padding:12px 0;border-top:1px solid var(--line)}
+.facts .num{font-family:var(--font-data);font-weight:600;font-size:1.12rem;color:var(--tremor);font-variant-numeric:tabular-nums}
+
+/* Trivia */
+.tv-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tv-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:18px 16px;display:flex;flex-direction:column;gap:14px}
+.cat{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.q{font-size:1.25rem;font-weight:800;line-height:1.25}
+.opts{display:grid;grid-template-columns:minmax(0, 1fr);gap:10px}
+@media (min-width:540px){ .opts{grid-template-columns:repeat(2, minmax(0, 1fr))} }
+.opt{min-height:58px;border:0;border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;text-align:left;font:inherit;font-weight:700;line-height:1.3;color:var(--opt-ink);cursor:pointer}
+.opt .sh{width:1.2em;text-align:center;font-size:.95rem;flex:none}
+.opt .tx{min-width:0}
+.o1{background:var(--opt-1)} .o2{background:var(--opt-2)} .o3{background:var(--opt-3)} .o4{background:var(--opt-4);color:var(--opt-4-ink)}
+.opt:disabled{cursor:default}
+.opt.correct{outline:3px solid var(--ink);outline-offset:2px}
+.opt.correct::after{content:"✓";margin-left:auto;font-weight:800;font-size:1.1rem}
+.opt.wrong{opacity:.6}
+.opt.wrong::after{content:"✗";margin-left:auto;font-weight:800;font-size:1.1rem}
+.opt.dim{opacity:.32}
+.fb{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--surface-2)}
+.verdict{font-weight:800;font-size:1.05rem}
+.verdict.ok{color:var(--accent)}
+.verdict.no{color:var(--tremor)}
+.primary{min-height:50px;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font:inherit;font-weight:800;padding:0 20px;cursor:pointer;align-self:flex-start}
+.score{font-family:var(--font-data);font-weight:600;font-size:3rem;line-height:1;color:var(--accent)}
+.score .of{font-size:1.2rem;color:var(--muted)}
+
+/* Pie */
+.foot{display:flex;flex-direction:column;gap:6px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.92rem}
+.foot .small{font-size:.8rem}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  .pad-tg circle{animation:none}
+  .res-bar div{transition:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="brand">STEADYGRIP</span>
+    <span class="school">7mo C · Inst. Técnico Gral Belgrano F29</span>
+  </header>
+
+  <section class="hero">
+    <h1>Comer sin derramar, aunque la mano tiemble.</h1>
+    <p class="lead">STEADYGRIP es un mango con cuchara que mide la inclinación de la cuchara 50 veces por segundo y, con dos motores, la gira al revés para mantenerla derecha aunque la muñeca gire.</p>
+    <nav class="jump" aria-label="Secciones">
+      <a href="#probalo" data-modo="libre">Probalo</a>
+      <a href="#probalo" data-modo="juego">Jugar</a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#trivia">Trivia</a>
+    </nav>
+  </section>
+
+  <section id="probalo" class="bench" aria-labelledby="t-probalo">
+    <div class="bench-head">
+      <h2 id="t-probalo">Probalo acá</h2>
+      <span class="tag">Simulación</span>
+    </div>
+
+    <div class="seg" role="group" aria-label="Modo del simulador">
+      <button type="button" id="mLibre" class="on" aria-pressed="true">Probar libre</button>
+      <button type="button" id="mJuego" aria-pressed="false">Jugar</button>
+    </div>
+
+    <div class="views">
+      <figure class="view">
+        <svg id="vFrente" viewBox="0 0 160 120" role="img" aria-label="Vista de frente: el mango gira sobre su eje y el cardán con la cuchara se mantiene nivelado.">
+          <line class="sv-level" x1="4" x2="156" y1="64" y2="64"/>
+          <g id="fMango">
+            <circle class="sv-handle" cx="80" cy="64" r="29"/>
+            <line class="sv-seam" x1="51" y1="64" x2="109" y2="64"/>
+            <rect class="sv-mark" x="76" y="31" width="8" height="8" rx="1.5"/>
+          </g>
+          <g id="fCuch">
+            <rect class="sv-part" x="57" y="52" width="48" height="24" rx="3"/>
+            <rect class="sv-servo" x="36" y="49" width="21" height="30" rx="2.5"/>
+            <rect class="sv-servo-in" x="40" y="54" width="13" height="20" rx="2"/>
+            <rect class="sv-part" x="105" y="59" width="5" height="10" rx="1"/>
+            <rect class="sv-handle" x="65" y="54" width="32" height="20" rx="3"/>
+            <rect class="sv-sensor" x="69" y="49" width="24" height="5" rx="1"/>
+            <ellipse class="sv-bowl" cx="81" cy="67" rx="30" ry="6.5"/>
+            <g id="fLent"></g>
+          </g>
+          <g id="fFall"></g>
+        </svg>
+        <figcaption>De frente: gira sobre su eje</figcaption>
+      </figure>
+      <figure class="view">
+        <svg id="vCostado" viewBox="0 0 160 120" role="img" aria-label="Vista de costado: el mango sube y baja y la cuchara se mantiene nivelada.">
+          <line class="sv-level" x1="4" x2="156" y1="64" y2="64"/>
+          <g id="sMango">
+            <path class="sv-cable" d="M4 64 C-4 64 -6 76 -8 92"/>
+            <rect class="sv-handle" x="2" y="55" width="54" height="18" rx="9"/>
+            <line class="sv-seam" x1="8" y1="64" x2="54" y2="64"/>
+            <rect class="sv-part" x="56" y="57" width="4" height="14" rx="1"/>
+            <rect class="sv-part" x="60" y="51" width="34" height="26" rx="3"/>
+            <rect class="sv-servo" x="68" y="44" width="22" height="7" rx="1.5"/>
+          </g>
+          <g id="sCuch">
+            <rect class="sv-handle" x="74" y="56" width="21" height="16" rx="3"/>
+            <circle class="sv-part" cx="84" cy="64" r="3"/>
+            <rect class="sv-part" x="95" y="59" width="18" height="10" rx="2"/>
+            <rect class="sv-sensor" x="97" y="55" width="15" height="4" rx="1"/>
+            <line class="sv-neck" x1="113" y1="64" x2="123" y2="64"/>
+            <path class="sv-bowl" d="M121 60 C126 70 148 70 153 60 C146 64 128 64 121 60 Z"/>
+            <g id="sLent"></g>
+          </g>
+          <g id="sFall"></g>
+        </svg>
+        <figcaption>De costado: sube y baja</figcaption>
+      </figure>
+      <div class="chip" aria-live="polite"><span id="lentCount">7</span> de 7 lentejas</div>
+    </div>
+
+    <div class="readouts">
+      <div class="ro"><span class="lbl">Giro</span><span class="val" id="rGiro">0°</span></div>
+      <div class="ro"><span class="lbl">Inclinación</span><span class="val" id="rIncl">0°</span></div>
+      <div class="ro"><span class="lbl">Cuchara</span><span class="val ok" id="rCuch">0°</span></div>
+    </div>
+
+    <div id="hud" class="hud" hidden>
+      <div class="hud-row">
+        <span class="tag" id="hudRonda">Ronda 1 · Sin STEADYGRIP</span>
+        <span class="hud-t"><b id="hudTiempo">20</b> s</span>
+      </div>
+      <div class="bar" aria-hidden="true"><div id="hudBarra"></div></div>
+      <p class="hud-pts">Lentejas a la boca: <b id="hudPuntos">0</b></p>
+    </div>
+
+    <svg id="pad" class="pad" viewBox="0 0 300 180" tabindex="0" role="application" aria-label="Control del mango. Arrastrá el punto o usá las flechas del teclado: a los costados el mango gira sobre su eje; arriba y abajo, la cuchara sube o baja." aria-describedby="padHint">
+      <rect class="pad-bg" x="0.5" y="0.5" width="299" height="179" rx="14"/>
+      <g class="pad-grid" aria-hidden="true">
+        <line x1="66" y1="12" x2="66" y2="168"/>
+        <line x1="108" y1="12" x2="108" y2="168"/>
+        <line x1="192" y1="12" x2="192" y2="168"/>
+        <line x1="234" y1="12" x2="234" y2="168"/>
+        <line x1="12" y1="57" x2="288" y2="57"/>
+        <line x1="12" y1="123" x2="288" y2="123"/>
+      </g>
+      <line class="pad-axis" x1="150" y1="12" x2="150" y2="168"/>
+      <line class="pad-axis" x1="12" y1="90" x2="288" y2="90"/>
+      <text class="pad-txt" x="150" y="14" text-anchor="middle">Subir</text>
+      <text class="pad-txt" x="150" y="174" text-anchor="middle">Bajar</text>
+      <text class="pad-txt" x="8" y="86">← Girar</text>
+      <text class="pad-txt" x="292" y="86" text-anchor="end">Girar →</text>
+      <g id="padTarget" class="pad-tg boca" visibility="hidden">
+        <circle cx="0" cy="0" r="17"/>
+        <text id="padTargetTxt" x="0" y="3">Boca</text>
+      </g>
+      <g id="padFloat"></g>
+      <circle id="padMano" class="pad-mano" cx="150" cy="90" r="11"/>
+    </svg>
+    <p class="hint" id="padHint">Arrastrá el punto: a los costados, el mango gira sobre su eje; arriba y abajo, la cuchara sube o baja.</p>
+
+    <div id="libreCtrls" class="controls">
+      <button type="button" id="btnEstab" class="toggle on" aria-pressed="true"><b>Estabilización activada</b><small>Tocá para apagarla</small></button>
+      <div class="sec">
+        <button type="button" id="btnRecargar" class="ghost">Recargar lentejas</button>
+        <button type="button" id="btnSensor" class="ghost" hidden>Usar el sensor del celular</button>
+      </div>
+    </div>
+    <p id="sensorNote" class="note" hidden></p>
+    <p class="status" id="status" aria-live="polite">La cuchara sigue derecha aunque el mango gire.</p>
+
+    <div id="juegoPanel" class="game" hidden>
+      <h3 id="jTitulo">Del plato a la boca</h3>
+      <p id="jTexto"></p>
+      <div id="jResultado" class="result" hidden>
+        <div class="res-row"><span>Sin STEADYGRIP</span><b id="jSin">0</b></div>
+        <div class="res-bar"><div id="jBarSin" class="sin"></div></div>
+        <div class="res-row"><span>Con STEADYGRIP</span><b id="jCon">0</b></div>
+        <div class="res-bar"><div id="jBarCon" class="con"></div></div>
+      </div>
+      <p id="jMejor" class="note" hidden></p>
+      <button type="button" id="jBoton" class="primary">Empezar</button>
+    </div>
+  </section>
+
+  <section id="como" class="block" aria-labelledby="t-como">
+    <h2 id="t-como">Cómo funciona</h2>
+    <p>Cada 20 milésimas de segundo, el mango repite estos tres pasos:</p>
+    <ol class="steps">
+      <li><span class="n">1</span><div><h3>Mide</h3><p>Un sensor MPU-6050 va montado junto a la cuchara. Su acelerómetro sabe dónde está “abajo” y su giróscopo, qué tan rápido gira.</p></div></li>
+      <li><span class="n">2</span><div><h3>Calcula</h3><p>Un microcontrolador ESP32 combina las dos mediciones y calcula cuánto tiene que girar cada motor.</p></div></li>
+      <li><span class="n">3</span><div><h3>Corrige</h3><p>Dos servomotores giran la cuchara al revés del movimiento: uno hace girar el cardán sobre el eje del mango y el otro inclina la cuchara hacia adelante y atrás.</p></div></li>
+    </ol>
+    <p class="loop-note">Como el sensor se mueve con la cuchara, después de corregir vuelve a medir y sabe si ya quedó derecha.</p>
+    <dl class="specs">
+      <div><dt>Cerebro</dt><dd>ESP32</dd></div>
+      <div><dt>Sensores</dt><dd>2 × MPU-6050: uno junto a la cuchara y otro en el mango</dd></div>
+      <div><dt>Motores</dt><dd>2 servos MG90S</dd></div>
+      <div><dt>Piezas</dt><dd>Diseñadas en Onshape e impresas en 3D (PLA)</dd></div>
+      <div><dt>App</dt><dd>Android: temblor en vivo, historial diario y archivo para el médico</dd></div>
+      <div><dt>Conexión</dt><dd>WiFi propio del mango, sin internet</dd></div>
+    </dl>
+  </section>
+
+  <section id="temblor" class="block" aria-labelledby="t-temblor">
+    <h2 id="t-temblor">Sobre el temblor</h2>
+    <ul class="facts">
+      <li><span class="num">4–6 Hz</span><p>Es la frecuencia típica del temblor de reposo del Parkinson: la mano va y viene de 4 a 6 veces por segundo.</p></li>
+      <li><span class="num">8–12 Hz</span><p>Es el temblor fisiológico, uno muy chiquito que tenemos todos. Casi no se ve, pero un sensor lo puede medir.</p></li>
+      <li><span class="num">100.000</span><p>personas, aproximadamente, viven con Parkinson en la Argentina, según una estimación citada en la Cámara de Diputados. No hay cifras oficiales.</p></li>
+    </ul>
+    <p>También pensamos en quienes no tiemblan pero no pueden girar bien la muñeca, por ejemplo después de un ACV. STEADYGRIP mantiene la cuchara derecha aunque la mano quede torcida.</p>
+  </section>
+
+  <section id="trivia" class="block" aria-labelledby="t-trivia">
+    <div class="tv-head">
+      <h2 id="t-trivia">Trivia</h2>
+      <span class="tag" id="tvProg" hidden></span>
+    </div>
+    <div id="tvStart" class="tv-card">
+      <p>Ocho preguntas sobre el temblor, la tecnología de tu celular y STEADYGRIP. Después de cada una te contamos un dato.</p>
+      <button type="button" id="tvGo" class="primary">Empezar la trivia</button>
+      <p id="tvBest" class="note" hidden></p>
+    </div>
+    <div id="tvPlay" class="tv-card" hidden>
+      <p class="cat" id="tvCat"></p>
+      <h3 class="q" id="tvQ"></h3>
+      <div class="opts" id="tvOpts">
+        <button type="button" class="opt o1" data-i="0"><span class="sh" aria-hidden="true">▲</span><span class="tx"></span></button>
+        <button type="button" class="opt o2" data-i="1"><span class="sh" aria-hidden="true">◆</span><span class="tx"></span></button>
+        <button type="button" class="opt o3" data-i="2"><span class="sh" aria-hidden="true">●</span><span class="tx"></span></button>
+        <button type="button" class="opt o4" data-i="3"><span class="sh" aria-hidden="true">■</span><span class="tx"></span></button>
+      </div>
+      <div id="tvFb" class="fb" hidden aria-live="polite">
+        <p class="verdict" id="tvVerdict"></p>
+        <p id="tvDato"></p>
+        <button type="button" id="tvNext" class="primary">Siguiente</button>
+      </div>
+    </div>
+    <div id="tvEnd" class="tv-card" hidden>
+      <p class="score"><span id="tvScore">0</span><span class="of" id="tvOf"> de 8</span></p>
+      <p id="tvMsg"></p>
+      <p id="tvEndBest" class="note"></p>
+      <button type="button" id="tvAgain" class="primary">Jugar otra vez</button>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p class="brand">STEADYGRIP</p>
+    <p>Proyecto de 7mo C del Inst. Técnico Gral Belgrano F29, 2026.</p>
+    <p class="small">Es un proyecto escolar y no reemplaza la consulta médica. El dato de personas con Parkinson en la Argentina es una estimación citada en el proyecto de ley 1390-D-2025 de la Cámara de Diputados de la Nación.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var D2R = Math.PI / 180;
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function grados(v, dec) {
+    var s = (Math.abs(v) < 0.05 ? 0 : v).toFixed(dec || 0).replace('.', ',');
+    if (/^-0(,0)?$/.test(s)) s = s.slice(1);
+    return s.replace('-', '−') + '°';
+  }
+  function plural(n) { return n === 1 ? 'lenteja' : 'lentejas'; }
+
+  /* ================= Simulador ================= */
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var FC = { x: 80, y: 64 };          // eje del mango en la vista de frente
+  var SP = { x: 84, y: 64 };          // pivote del cabezal en la vista de costado
+  var F_BOWL_X = 81, F_BOWL_R = 24;   // cuenco visto de frente
+  var S_BOWL_X = 137, S_BOWL_R = 14;  // cuenco visto de costado
+  var G = 490, K = 110, S = 60, AMORT = 3;  // física de las lentejas (en radios del cuenco)
+  var TAU = 0.02, VEL_SERVO = 600;    // servo: retraso (s) y velocidad máxima (°/s)
+  var TAU_MANO = 0.15, VEL_MANO = 500; // la mano sigue al dedo con un poco de inercia
+  var LIM_X = 60, LIM_Y = 40;         // giro sobre su eje y subir/bajar, en grados
+  var PAD = { cx: 150, cy: 90, sx: 126 / 60, sy: 66 / 40 };
+  var RONDA = 20;
+  var INICIO = [[-0.55, 0.1, 0], [-0.25, -0.45, 0], [0.05, 0.4, 0], [0.35, -0.2, 0], [0.6, 0.15, 0], [-0.1, 0.05, -1.5], [0.2, -0.1, -1.5]];
+
+  var fMango = $('fMango'), fCuch = $('fCuch'), fLent = $('fLent'), fFall = $('fFall');
+  var sMango = $('sMango'), sCuch = $('sCuch'), sLent = $('sLent'), sFall = $('sFall');
+  var padSvg = $('pad'), padMano = $('padMano'), padTarget = $('padTarget'), padTargetTxt = $('padTargetTxt'), padFloat = $('padFloat');
+
+  var dedo = { x: 25, y: -8 }, mano = { x: 25, y: -8 };
+  var c1 = -25, c2 = 8;                // corrección de cada servo (grados)
+  var estab = true, estabLibre = true, modo = 'libre';
+  var lentejas = [], cayendo = [], flotantes = [];
+  var juego = null, juegoEstado = 'intro', resultados = { sin: 0, con: 0 };
+  var sensorOn = false, gotEvent = false, beta0 = null, sensorX = 0, sensorY = 0;
+
+  function fSup(w) { return 64 - 2.5 * w * w; }
+  function sSup(u) { return 63 - 3 * u * u; }
+  function padX(x) { return PAD.cx + x * PAD.sx; }
+  function padY(y) { return PAD.cy + y * PAD.sy; }
+  function rotar(px, py, c, deg) {
+    var r = deg * D2R, co = Math.cos(r), si = Math.sin(r), dx = px - c.x, dy = py - c.y;
+    return { x: c.x + dx * co - dy * si, y: c.y + dx * si + dy * co };
+  }
+  function crearLenteja(parent) {
+    var e = document.createElementNS(SVGNS, 'ellipse');
+    e.setAttribute('rx', '2.6'); e.setAttribute('ry', '1.7'); e.setAttribute('class', 'sv-lent');
+    parent.appendChild(e);
+    return e;
+  }
+  function ubicar(L) {
+    L.elF.setAttribute('cx', (F_BOWL_X + F_BOWL_R * L.w).toFixed(2));
+    L.elF.setAttribute('cy', (fSup(L.w) - 1.5 + L.capa).toFixed(2));
+    L.elS.setAttribute('cx', (S_BOWL_X + S_BOWL_R * L.u).toFixed(2));
+    L.elS.setAttribute('cy', (sSup(L.u) - 1.5 + L.capa).toFixed(2));
+  }
+  function enCuchara() { return lentejas.filter(function (l) { return l.on; }).length; }
+  function contar() {
+    var n = enCuchara();
+    $('lentCount').textContent = n;
+    $('btnRecargar').classList.toggle('alert', n < lentejas.length);
+  }
+  function cargar() {
+    fLent.textContent = ''; sLent.textContent = ''; fFall.textContent = ''; sFall.textContent = '';
+    cayendo = []; lentejas = [];
+    INICIO.forEach(function (p) {
+      var L = { u: p[0], w: p[1], capa: p[2], vu: 0, vw: 0, on: true, elF: crearLenteja(fLent), elS: crearLenteja(sLent) };
+      ubicar(L);
+      lentejas.push(L);
+    });
+    contar();
+  }
+  function comer() {
+    var n = 0;
+    lentejas.forEach(function (L) {
+      if (!L.on) return;
+      n++; L.on = false;
+      L.elF.setAttribute('visibility', 'hidden'); L.elS.setAttribute('visibility', 'hidden');
+    });
+    contar();
+    return n;
+  }
+  function derramar(L, pS, rS) {
+    L.on = false;
+    L.elF.setAttribute('visibility', 'hidden'); L.elS.setAttribute('visibility', 'hidden');
+    var pf = rotar(F_BOWL_X + F_BOWL_R * L.w, fSup(L.w) - 1.5 + L.capa, FC, rS);
+    var ps = rotar(S_BOWL_X + S_BOWL_R * L.u, sSup(L.u) - 1.5 + L.capa, SP, pS);
+    var vf = L.vw * F_BOWL_R, vs = L.vu * S_BOWL_R;
+    cayendo.push({ x: pf.x, y: pf.y, vx: vf * Math.cos(rS * D2R), vy: vf * Math.sin(rS * D2R) - 10, r: rS, vr: (Math.random() * 2 - 1) * 400, el: crearLenteja(fFall) });
+    cayendo.push({ x: ps.x, y: ps.y, vx: vs * Math.cos(pS * D2R), vy: vs * Math.sin(pS * D2R) - 10, r: pS, vr: (Math.random() * 2 - 1) * 400, el: crearLenteja(sFall) });
+  }
+  function flotar(txt, x, y) {
+    var e = document.createElementNS(SVGNS, 'text');
+    e.setAttribute('class', 'pad-plus'); e.textContent = txt;
+    padFloat.appendChild(e);
+    flotantes.push({ el: e, x: x, y: y, vida: 0.9 });
+  }
+
+  function textos(rS, pS) {
+    $('rGiro').textContent = grados(mano.x);
+    $('rIncl').textContent = grados(mano.y);
+    var dv = Math.max(Math.abs(rS), Math.abs(pS));
+    $('rCuch').textContent = grados(dv, 1);
+    $('rCuch').classList.toggle('bad', dv >= 10);
+    $('rCuch').classList.toggle('ok', dv < 10);
+    if (modo === 'libre') {
+      var st;
+      if (enCuchara() === 0) st = 'Se cayeron todas las lentejas. Tocá “Recargar lentejas”.';
+      else if (dv < 3) st = estab ? 'La cuchara sigue derecha aunque el mango gire.' : 'Cuchara derecha. Probá girar el mango.';
+      else st = estab ? 'Los motores están corrigiendo…' : 'Sin estabilización, la cuchara se inclina con el mango.';
+      $('status').textContent = st;
+    } else if (juego && juego.activo) {
+      $('hudTiempo').textContent = Math.max(0, Math.ceil(juego.t));
+    }
+  }
+
+  var last = performance.now(), ultimoTexto = 0;
+  function paso(now) {
+    var dt = Math.min(0.04, Math.max(0, (now - last) / 1000));
+    last = now;
+
+    if (sensorOn && gotEvent) { dedo.x = sensorX; dedo.y = sensorY; }
+    // La mano sigue al dedo con un poco de inercia
+    var km = 1 - Math.exp(-dt / TAU_MANO), lm = VEL_MANO * dt;
+    mano.x += clamp((dedo.x - mano.x) * km, -lm, lm);
+    mano.y += clamp((dedo.y - mano.y) * km, -lm, lm);
+    // Cada servo gira al revés que la mano, con su retraso y su velocidad máxima
+    var o1 = estab ? clamp(-mano.x, -80, 80) : 0, o2 = estab ? clamp(-mano.y, -80, 80) : 0;
+    var ks = 1 - Math.exp(-dt / TAU), ls = VEL_SERVO * dt;
+    c1 += clamp((o1 - c1) * ks, -ls, ls);
+    c2 += clamp((o2 - c2) * ks, -ls, ls);
+    var rS = mano.x + c1, pS = mano.y + c2;   // inclinación real de la cuchara
+
+    fMango.setAttribute('transform', 'rotate(' + mano.x.toFixed(2) + ' ' + FC.x + ' ' + FC.y + ')');
+    fCuch.setAttribute('transform', 'rotate(' + rS.toFixed(2) + ' ' + FC.x + ' ' + FC.y + ')');
+    sMango.setAttribute('transform', 'rotate(' + mano.y.toFixed(2) + ' ' + SP.x + ' ' + SP.y + ')');
+    sCuch.setAttribute('transform', 'rotate(' + pS.toFixed(2) + ' ' + SP.x + ' ' + SP.y + ')');
+    padMano.setAttribute('cx', padX(mano.x).toFixed(1));
+    padMano.setAttribute('cy', padY(mano.y).toFixed(1));
+
+    // Lentejas: la inclinación las empuja; la forma del cuenco y el roce las frenan
+    var sp = Math.sin(pS * D2R), sr = Math.sin(rS * D2R), cambio = false;
+    lentejas.forEach(function (L) {
+      if (!L.on) return;
+      var fu = G * sp - K * L.u, fw = G * sr - K * L.w;
+      var fm = Math.sqrt(fu * fu + fw * fw), vm = Math.sqrt(L.vu * L.vu + L.vw * L.vw);
+      if (!(vm === 0 && fm <= S)) {
+        var du = vm > 0 ? L.vu / vm : fu / fm, dw = vm > 0 ? L.vw / vm : fw / fm;
+        L.vu += (fu - S * 0.6 * du) * dt;
+        L.vw += (fw - S * 0.6 * dw) * dt;
+        var am = Math.exp(-AMORT * dt);
+        L.vu *= am; L.vw *= am;
+        if (Math.sqrt(L.vu * L.vu + L.vw * L.vw) < 0.03 && fm <= S) { L.vu = 0; L.vw = 0; }
+        L.u += L.vu * dt; L.w += L.vw * dt;
+      }
+      if (L.u * L.u + L.w * L.w > 1.1664) { derramar(L, pS, rS); cambio = true; }
+      else ubicar(L);
+    });
+    if (cambio) contar();
+
+    cayendo = cayendo.filter(function (c) {
+      c.vy += 500 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.r += c.vr * dt;
+      if (c.y > 130) { c.el.remove(); return false; }
+      c.el.setAttribute('cx', c.x.toFixed(1));
+      c.el.setAttribute('cy', c.y.toFixed(1));
+      c.el.setAttribute('transform', 'rotate(' + c.r.toFixed(0) + ' ' + c.x.toFixed(1) + ' ' + c.y.toFixed(1) + ')');
+      return true;
+    });
+    flotantes = flotantes.filter(function (f) {
+      f.vida -= dt; f.y -= 22 * dt;
+      if (f.vida <= 0) { f.el.remove(); return false; }
+      f.el.setAttribute('x', f.x.toFixed(1)); f.el.setAttribute('y', f.y.toFixed(1));
+      f.el.setAttribute('opacity', Math.min(1, f.vida / 0.5).toFixed(2));
+      return true;
+    });
+
+    if (juego && juego.activo) pasoJuego(dt);
+    if (now - ultimoTexto > 120) { ultimoTexto = now; textos(rS, pS); }
+    requestAnimationFrame(paso);
+  }
+
+  /* ---------- Modo libre ---------- */
+  function setEstab(on) {
+    estab = on; estabLibre = on;
+    var b = $('btnEstab');
+    b.classList.toggle('on', on); b.classList.toggle('off', !on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.querySelector('b').textContent = on ? 'Estabilización activada' : 'Estabilización apagada';
+    b.querySelector('small').textContent = on ? 'Tocá para apagarla' : 'Tocá para activarla';
+  }
+  $('btnEstab').addEventListener('click', function () { setEstab(!estab); });
+  $('btnRecargar').addEventListener('click', cargar);
+
+  /* ---------- Panel de control (dedo, teclado y sensor) ---------- */
+  var arrastrando = null;
+  function padPunto(e) {
+    var r = padSvg.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    var vx = (e.clientX - r.left) * 300 / r.width, vy = (e.clientY - r.top) * 180 / r.height;
+    dedo.x = clamp((vx - PAD.cx) / PAD.sx, -LIM_X, LIM_X);
+    dedo.y = clamp((vy - PAD.cy) / PAD.sy, -LIM_Y, LIM_Y);
+    if (sensorOn) apagarSensor();
+  }
+  padSvg.addEventListener('pointerdown', function (e) {
+    arrastrando = e.pointerId;
+    try { padSvg.setPointerCapture(e.pointerId); } catch (_) {}
+    padPunto(e);
+    e.preventDefault();
+  });
+  padSvg.addEventListener('pointermove', function (e) { if (arrastrando === e.pointerId) padPunto(e); });
+  function soltar(e) { if (arrastrando === e.pointerId) arrastrando = null; }
+  padSvg.addEventListener('pointerup', soltar);
+  padSvg.addEventListener('pointercancel', soltar);
+  padSvg.addEventListener('keydown', function (e) {
+    var p = 6;
+    if (e.key === 'ArrowLeft') dedo.x = clamp(dedo.x - p, -LIM_X, LIM_X);
+    else if (e.key === 'ArrowRight') dedo.x = clamp(dedo.x + p, -LIM_X, LIM_X);
+    else if (e.key === 'ArrowUp') dedo.y = clamp(dedo.y - p, -LIM_Y, LIM_Y);
+    else if (e.key === 'ArrowDown') dedo.y = clamp(dedo.y + p, -LIM_Y, LIM_Y);
+    else return;
+    e.preventDefault();
+    if (sensorOn) apagarSensor();
+  });
+
+  // Sensor del celular: solo se ofrece cuando la página se abre sola en un celular
+  var enMarco = (function () { try { return window.self !== window.top; } catch (_) { return true; } })();
+  var tactil = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  if (!enMarco && tactil && 'DeviceOrientationEvent' in window) $('btnSensor').hidden = false;
+  function nota(txt) { var n = $('sensorNote'); n.textContent = txt; n.hidden = !txt; }
+  function onOrient(e) {
+    if (e.gamma === null || e.gamma === undefined || e.beta === null || e.beta === undefined) return;
+    if (beta0 === null) beta0 = e.beta;
+    gotEvent = true;
+    sensorX = clamp(e.gamma, -LIM_X, LIM_X);
+    sensorY = clamp(e.beta - beta0, -LIM_Y, LIM_Y);
+  }
+  function apagarSensor() {
+    sensorOn = false;
+    window.removeEventListener('deviceorientation', onOrient);
+    $('btnSensor').textContent = 'Usar el sensor del celular';
+  }
+  $('btnSensor').addEventListener('click', function () {
+    if (sensorOn) { apagarSensor(); nota(''); return; }
+    var pedir;
+    try {
+      pedir = (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function')
+        ? DeviceOrientationEvent.requestPermission() : Promise.resolve('granted');
+    } catch (_) { pedir = Promise.reject(new Error('sin permiso')); }
+    Promise.resolve(pedir).then(function (r) {
+      if (r !== 'granted') throw new Error('sin permiso');
+      sensorOn = true; gotEvent = false; beta0 = null;
+      window.addEventListener('deviceorientation', onOrient);
+      $('btnSensor').textContent = 'Dejar de usar el sensor';
+      nota('Sostené el celular acostado, como una bandeja: giralo hacia los costados y hacia adelante o atrás.');
+      setTimeout(function () {
+        if (sensorOn && !gotEvent) { apagarSensor(); nota('Este navegador no deja leer el sensor. Usá el panel con el dedo.'); }
+      }, 2000);
+    }).catch(function () { apagarSensor(); nota('No se pudo usar el sensor. Usá el panel con el dedo.'); });
+  });
+
+  /* ---------- Juego: del plato a la boca ---------- */
+  function leerJ() { try { return Number(localStorage.getItem('sg-juego-mejor')) || 0; } catch (_) { return 0; } }
+  function guardarJ(n) { try { localStorage.setItem('sg-juego-mejor', String(n)); } catch (_) {} }
+
+  function nuevoObjetivo(tipo) {
+    var x, y, n = 0;
+    do {
+      x = Math.round((Math.random() * 2 - 1) * 50);
+      y = Math.round(tipo === 'boca' ? -(12 + Math.random() * 22) : (12 + Math.random() * 22));
+      n++;
+    } while (Math.hypot(padX(x) - padX(mano.x), padY(y) - padY(mano.y)) < 80 && n < 25);
+    juego.obj = { tipo: tipo, x: x, y: y };
+    padTarget.setAttribute('transform', 'translate(' + padX(x).toFixed(1) + ' ' + padY(y).toFixed(1) + ')');
+    padTarget.setAttribute('class', 'pad-tg ' + tipo);
+    padTargetTxt.textContent = tipo === 'boca' ? 'Boca' : 'Plato';
+    padTarget.setAttribute('visibility', 'visible');
+  }
+  function pasoJuego(dt) {
+    juego.t -= dt;
+    $('hudBarra').style.width = Math.max(0, juego.t / RONDA * 100).toFixed(1) + '%';
+    var o = juego.obj;
+    if (o && Math.hypot(padX(mano.x) - padX(o.x), padY(mano.y) - padY(o.y)) < 14) {
+      if (o.tipo === 'boca') {
+        var n = comer();
+        juego.puntos += n;
+        $('hudPuntos').textContent = juego.puntos;
+        flotar('+' + n, padX(o.x), padY(o.y) - 22);
+        nuevoObjetivo('plato');
+      } else {
+        cargar();
+        flotar('¡Cargada!', padX(o.x), padY(o.y) - 22);
+        nuevoObjetivo('boca');
+      }
+    }
+    if (juego.t <= 0) finRonda();
+  }
+  function empezarRonda(n) {
+    juego = { ronda: n, t: RONDA, puntos: 0, activo: true, obj: null };
+    estab = n === 2;
+    dedo.x = 0; dedo.y = 0; mano.x = 0; mano.y = 0; c1 = 0; c2 = 0;
+    cargar();
+    $('juegoPanel').hidden = true;
+    $('hud').hidden = false;
+    $('hudRonda').textContent = n === 1 ? 'Ronda 1 · Sin STEADYGRIP' : 'Ronda 2 · Con STEADYGRIP';
+    $('hudRonda').classList.toggle('ok', n === 2);
+    $('hudPuntos').textContent = '0';
+    $('hudTiempo').textContent = RONDA;
+    nuevoObjetivo('boca');
+    var r = $('probalo').getBoundingClientRect();
+    if (r.top < 0 || r.top > window.innerHeight * 0.5) $('probalo').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  function finRonda() {
+    juego.activo = false;
+    padTarget.setAttribute('visibility', 'hidden');
+    $('hud').hidden = true;
+    if (juego.ronda === 1) { resultados.sin = juego.puntos; panel('entre'); }
+    else { resultados.con = juego.puntos; panel('fin'); }
+  }
+  function panel(estado) {
+    juegoEstado = estado;
+    var p = $('juegoPanel');
+    p.hidden = false;
+    $('jResultado').hidden = estado !== 'fin';
+    $('jMejor').hidden = true;
+    if (estado === 'intro') {
+      $('jTitulo').textContent = 'Del plato a la boca';
+      $('jTexto').textContent = 'Llevá el punto a cada círculo: en el Plato se carga la cuchara y en la Boca sumás las lentejas que llegaron. Jugás 20 segundos sin STEADYGRIP y 20 segundos con STEADYGRIP.';
+      $('jBoton').textContent = 'Empezar';
+    } else if (estado === 'entre') {
+      $('jTitulo').textContent = 'Ronda 1 terminada';
+      $('jTexto').textContent = 'Sin STEADYGRIP llevaste ' + resultados.sin + ' ' + plural(resultados.sin) + ' a la boca. Ahora jugá con STEADYGRIP: los motores mantienen la cuchara derecha mientras girás.';
+      $('jBoton').textContent = 'Empezar ronda 2';
+    } else {
+      var s = resultados.sin, c = resultados.con, max = Math.max(s, c, 1);
+      $('jTitulo').textContent = 'Resultado';
+      $('jSin').textContent = s; $('jCon').textContent = c;
+      $('jBarSin').style.width = '0'; $('jBarCon').style.width = '0';
+      requestAnimationFrame(function () {
+        $('jBarSin').style.width = (s / max * 100) + '%';
+        $('jBarCon').style.width = (c / max * 100) + '%';
+      });
+      $('jTexto').textContent = c > s
+        ? 'Con STEADYGRIP llevaste ' + (c - s) + ' ' + plural(c - s) + ' más a la boca. Eso hacen los motores: la cuchara queda derecha aunque la muñeca gire.'
+        : 'Te fue parecido en las dos rondas. Probá de nuevo girando más el mango: ahí se nota la diferencia.';
+      var mejor = Math.max(leerJ(), c);
+      guardarJ(mejor);
+      $('jMejor').textContent = 'Tu mejor marca con STEADYGRIP: ' + mejor + ' ' + plural(mejor) + '.';
+      $('jMejor').hidden = false;
+      $('jBoton').textContent = 'Jugar otra vez';
+    }
+    var r = p.getBoundingClientRect();
+    if (r.bottom > window.innerHeight || r.top < 0) p.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  $('jBoton').addEventListener('click', function () {
+    if (juegoEstado === 'entre') empezarRonda(2); else empezarRonda(1);
+  });
+
+  function setModo(m) {
+    modo = m;
+    $('mLibre').classList.toggle('on', m === 'libre');
+    $('mJuego').classList.toggle('on', m === 'juego');
+    $('mLibre').setAttribute('aria-pressed', m === 'libre' ? 'true' : 'false');
+    $('mJuego').setAttribute('aria-pressed', m === 'juego' ? 'true' : 'false');
+    $('libreCtrls').hidden = m !== 'libre';
+    $('status').hidden = m !== 'libre';
+    juego = null;
+    $('hud').hidden = true;
+    padTarget.setAttribute('visibility', 'hidden');
+    if (m === 'libre') {
+      $('juegoPanel').hidden = true;
+      estab = estabLibre;
+      cargar();
+    } else {
+      estab = true;
+      cargar();
+      panel('intro');
+    }
+  }
+  $('mLibre').addEventListener('click', function () { setModo('libre'); });
+  $('mJuego').addEventListener('click', function () { setModo('juego'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.jump a[data-modo]'), function (a) {
+    a.addEventListener('click', function () { setModo(a.getAttribute('data-modo')); });
+  });
+
+  cargar();
+  setEstab(true);
+  requestAnimationFrame(function (now) { last = now; paso(now); });
+
+  /* ================= Trivia ================= */
+  var CATS = ['El temblor', 'La tecnología de tu celular', 'STEADYGRIP'];
+  var POR_CAT = [3, 3, 2];
+  var PREGUNTAS = [
+    { c: 0, q: '¿Todos tenemos un pequeño temblor en las manos?', o: ['Sí, aunque casi no se note', 'No, solo las personas mayores', 'Solo cuando hace frío', 'Solo los deportistas'], k: 0, d: 'Se llama temblor fisiológico. Es muy chiquito, pero un sensor lo puede medir.' },
+    { c: 0, q: '¿De dónde viene el nombre “Parkinson”?', o: ['De una ciudad inglesa', 'Del médico James Parkinson, que la describió en 1817', 'Del primer paciente', 'De un medicamento'], k: 1, d: 'James Parkinson la describió en 1817 y la llamó “parálisis agitante”.' },
+    { c: 0, q: '¿Cuándo es el Día Mundial del Parkinson?', o: ['1 de enero', '25 de mayo', '11 de abril', '31 de diciembre'], k: 2, d: 'Es el 11 de abril, el día del cumpleaños de James Parkinson.' },
+    { c: 0, q: '¿Qué sustancia del cerebro disminuye en el Parkinson?', o: ['Adrenalina', 'Insulina', 'Melatonina', 'Dopamina'], k: 3, d: 'La dopamina ayuda a controlar los movimientos. Cuando falta, aparecen el temblor y la rigidez.' },
+    { c: 0, q: 'El temblor del Parkinson suele notarse más cuando la mano…', o: ['está en reposo', 'está corriendo', 'está dormida', 'está en el agua'], k: 0, d: 'Por eso se lo llama temblor de reposo.' },
+    { c: 0, q: '¿El Parkinson afecta solo a personas mayores?', o: ['Sí, solo a mayores de 80', 'No, puede empezar antes de los 50', 'Solo a niños', 'Solo a mujeres'], k: 1, d: 'Es más común en personas mayores, pero también hay casos en gente joven. El actor Michael J. Fox recibió el diagnóstico antes de los 30.' },
+    { c: 0, q: '¿Cuántas personas se estima que viven con Parkinson en la Argentina?', o: ['Unas 500', 'Unas 5.000', 'Unas 100.000', 'Unos 10 millones'], k: 2, d: 'Es una estimación citada en la Cámara de Diputados. No hay cifras oficiales.' },
+    { c: 0, q: '¿Cuántas veces por segundo suele ir y venir el temblor del Parkinson?', o: ['1 vez por minuto', 'Entre 4 y 6 veces', 'Unas 100 veces', 'Más de 1.000 veces'], k: 1, d: 'Se mide en hercios (Hz). Es lo que la app de STEADYGRIP muestra como “Frecuencia”.' },
+    { c: 1, q: '¿Qué sensor usa tu celular para girar la pantalla cuando lo acostás?', o: ['Termómetro', 'Micrófono', 'Acelerómetro', 'Cámara'], k: 2, d: 'Mide la gravedad, así que sabe dónde queda “abajo”. STEADYGRIP usa uno igual.' },
+    { c: 1, q: '¿Qué mide un giróscopo?', o: ['Qué tan rápido gira algo', 'La temperatura', 'El peso', 'La distancia'], k: 0, d: 'Tu celular lo usa en juegos y en realidad virtual. En STEADYGRIP sirve para reaccionar rápido.' },
+    { c: 1, q: '¿Qué significa “Hz” (hercio)?', o: ['Horas por zona', 'Veces por segundo', 'Grados de temperatura', 'Velocidad del WiFi'], k: 1, d: 'Si una mano tiembla a 5 Hz, va y viene 5 veces por segundo.' },
+    { c: 1, q: 'Los estabilizadores de cámara (gimbal) funcionan…', o: ['con resortes', 'con imanes', 'con aire comprimido', 'con motores que giran al revés del movimiento'], k: 3, d: 'Es el mismo principio que usa STEADYGRIP, pero aplicado a una cuchara.' },
+    { c: 1, q: 'La pieza llamada “cardán” lleva ese nombre por…', o: ['Gerolamo Cardano, un matemático italiano del siglo XVI', 'una marca de autos', 'una ciudad francesa', 'la palabra “cardo”'], k: 0, d: 'Hoy se usa en autos, cámaras, drones… y en STEADYGRIP, para girar la cuchara sobre el eje del mango.' },
+    { c: 2, q: '¿Cuántos motores usa STEADYGRIP para mantener la cuchara derecha?', o: ['1', '2', '4', '10'], k: 1, d: 'Uno hace girar el cardán sobre el eje del mango y el otro inclina la cuchara hacia adelante y atrás.' },
+    { c: 2, q: '¿Cuántas veces por segundo corrige la posición?', o: ['1', '5', '50', '5.000'], k: 2, d: 'Mide y corrige cada 20 milésimas de segundo.' },
+    { c: 2, q: '¿Cómo se conecta STEADYGRIP con el celular?', o: ['Por cable', 'Por satélite', 'Necesita internet', 'Crea su propia red WiFi'], k: 3, d: 'Así funciona en cualquier lugar, aunque no haya internet.' },
+    { c: 2, q: '¿Para qué sirve el sensor que va en el mango?', o: ['Para medir el temblor de la mano', 'Para medir la temperatura de la comida', 'Para contar calorías', 'Para prender una luz'], k: 0, d: 'Compara el movimiento de la mano con el de la cuchara y calcula cuánto se redujo el temblor.' }
+  ];
+  var BIEN = ['¡Correcto!', '¡Exacto!', '¡Muy bien!'], MAL = ['No era esa.', 'Casi.', 'Uy, no.'];
+  var opts = Array.prototype.slice.call(document.querySelectorAll('#tvOpts .opt'));
+  var tv = null;
+
+  function mezclar(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var x = a[i]; a[i] = a[j]; a[j] = x; }
+    return a;
+  }
+  function leerMejor() { try { return Number(localStorage.getItem('sg-trivia-mejor')) || 0; } catch (_) { return 0; } }
+  function guardarMejor(n) { try { localStorage.setItem('sg-trivia-mejor', String(n)); } catch (_) {} }
+  function nuevaPartida() {
+    var lista = [];
+    POR_CAT.forEach(function (n, c) {
+      lista = lista.concat(mezclar(PREGUNTAS.filter(function (p) { return p.c === c; })).slice(0, n));
+    });
+    tv = { lista: lista, i: 0, bien: 0 };
+    $('tvStart').hidden = true; $('tvEnd').hidden = true;
+    $('tvPlay').hidden = false; $('tvProg').hidden = false;
+    mostrar();
+  }
+  function mostrar() {
+    var p = tv.lista[tv.i];
+    $('tvProg').textContent = 'Pregunta ' + (tv.i + 1) + ' de ' + tv.lista.length;
+    $('tvCat').textContent = CATS[p.c];
+    $('tvQ').textContent = p.q;
+    opts.forEach(function (b, i) {
+      b.querySelector('.tx').textContent = p.o[i];
+      b.disabled = false;
+      b.className = 'opt o' + (i + 1);
+    });
+    $('tvFb').hidden = true;
+  }
+  opts.forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!tv || b.disabled) return;
+      var p = tv.lista[tv.i], elegida = Number(b.getAttribute('data-i')), ok = elegida === p.k;
+      if (ok) tv.bien++;
+      opts.forEach(function (x, i) {
+        x.disabled = true;
+        x.classList.add(i === p.k ? 'correct' : (i === elegida ? 'wrong' : 'dim'));
+      });
+      $('tvVerdict').textContent = ok ? BIEN[tv.i % 3] : MAL[tv.i % 3] + ' La correcta era: ' + p.o[p.k] + '.';
+      $('tvVerdict').className = 'verdict ' + (ok ? 'ok' : 'no');
+      $('tvDato').textContent = p.d;
+      $('tvNext').textContent = tv.i + 1 < tv.lista.length ? 'Siguiente' : 'Ver resultado';
+      $('tvFb').hidden = false;
+      try { $('tvNext').focus({ preventScroll: true }); } catch (_) {}
+    });
+  });
+  $('tvNext').addEventListener('click', function () {
+    tv.i++;
+    if (tv.i < tv.lista.length) {
+      mostrar();
+      var r = $('tvPlay').getBoundingClientRect();
+      if (r.top < 0) $('tvPlay').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+    } else {
+      terminar();
+    }
+  });
+  function terminar() {
+    var n = tv.bien, tot = tv.lista.length;
+    $('tvPlay').hidden = true; $('tvProg').hidden = true; $('tvEnd').hidden = false;
+    $('tvScore').textContent = n;
+    $('tvOf').textContent = ' de ' + tot;
+    $('tvMsg').textContent = n === tot ? '¡Perfecto! Sabés tanto como el equipo de STEADYGRIP.'
+      : n >= tot - 2 ? '¡Muy bien! Ya sabés cómo funciona STEADYGRIP.'
+      : n >= tot / 2 ? 'Nada mal. Ahora sabés un montón más sobre el temblor.'
+      : 'Te llevás un montón de datos nuevos. ¿Otra vuelta?';
+    var mejor = Math.max(leerMejor(), n);
+    guardarMejor(mejor);
+    $('tvEndBest').textContent = 'Tu mejor puntaje: ' + mejor + ' de ' + tot + '.';
+    $('tvBest').textContent = 'Tu mejor puntaje: ' + mejor + ' de ' + tot + '.';
+    $('tvBest').hidden = false;
+    var r = $('tvEnd').getBoundingClientRect();
+    if (r.top < 0) $('tvEnd').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  $('tvGo').addEventListener('click', nuevaPartida);
+  $('tvAgain').addEventListener('click', nuevaPartida);
+  var m0 = leerMejor();
+  if (m0 > 0) { $('tvBest').textContent = 'Tu mejor puntaje: ' + m0 + ' de 8.'; $('tvBest').hidden = false; }
+})();
+</script>
+
+</body>
+</html>
