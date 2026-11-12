@@ -580,7 +580,7 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
         <button type="button" id="hOn" class="on" aria-pressed="true">Con STEADYGRIP</button>
         <button type="button" id="hOff" aria-pressed="false">Sin STEADYGRIP</button>
       </div>
-      <p id="hNota" class="note">La mano tiembla unas 5 veces por segundo. Los motores giran la cuchara al revés y las lentejas no se caen.</p>
+      <p id="hNota" class="note">La mano tiembla unas 4 veces por segundo. Los motores giran la cuchara al revés y las lentejas no se caen.</p>
     </div>
     <nav class="tiles" aria-label="Qué podés hacer acá">
       <a class="tile" href="#probalo" data-modo="libre">
@@ -2777,6 +2777,9 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
       var em = (now - tm.tMed) / 1000;
       prog = Math.min(1, em / 10);
       if (em >= 10) { tmTerminar(); return; }
+      var cap = !tmMovReciente() ? 'Midiendo… quedate quieto.'
+        : tm.modo === 1 ? 'El celular se está moviendo: dejalo quieto sobre la mesa.' : 'Te estás moviendo mucho: así no se mide el temblor. Quedate quieto.';
+      if ($('tmCap').textContent !== cap) $('tmCap').textContent = cap;
     }
     $('tmBarra').style.width = (prog * 100).toFixed(1) + '%';
     tmDibujarVivo();
@@ -2856,18 +2859,31 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
       }
     }
     if (tipo === 'giro' && rms < 0.15) fPico = null;   // casi quieto: no hay un temblor que medir, solo ruido
-    return { fs: fs, rms: rms, f: fPico, amp: fPico ? rms * Math.SQRT2 / (2 * Math.PI * fPico) : null, esp: esp, tipo: tipo };
+    // Movimiento total, con la parte lenta (para reconocer un movimiento a propósito) y el pico más alto
+    var crudo = Math.sqrt(crudas.reduce(function (s, hp) {
+      var q = 0; for (var i = 0; i < n; i++) q += hp[i] * hp[i]; return s + q / n;
+    }, 0));
+    var picoMov = 0;
+    for (i = 0; i < n; i++) picoMov = Math.max(picoMov, Math.sqrt(m[i].x * m[i].x + m[i].y * m[i].y + m[i].z * m[i].z));
+    // Ritmo dominante entre 1 y 15 veces por segundo, y qué parte del movimiento queda cerca de ese ritmo
+    var iDom = -1, total = 0, cerca = 0;
+    esp.forEach(function (e, k) { total += e.p; if (e.f <= 15 && (iDom < 0 || e.p > esp[iDom].p)) iDom = k; });
+    var fDom = iDom >= 0 ? esp[iDom].f : null;
+    esp.forEach(function (e) { if (fDom !== null && Math.abs(e.f - fDom) <= 0.6) cerca += e.p; });
+    return { fs: fs, rms: rms, f: fPico, amp: fPico ? rms * Math.SQRT2 / (2 * Math.PI * fPico) : null, esp: esp, tipo: tipo,
+             crudo: crudo, picoMov: picoMov, fDom: fDom, ritmo: total > 0 ? cerca / total : 0 };
   }
   function tmTerminar() {
     window.removeEventListener('devicemotion', tmOnMotion);
     tm.activo = false;
     $('tmCuenta').textContent = '';
     var r = tmAnalizar(tm.datos);
+    if (r) r.clase = tm.ejemplo ? 'ejemplo' : tmClase(r, tm.modo);
     if (!tm.ejemplo && r) { tm.res[tm.modo] = r; }
     tmBotones(false);
     $('tmCap').textContent = 'Movimiento de los últimos 3 segundos.';
     if (!r) { tmNota('No llegaron suficientes mediciones del sensor. Probá de nuevo.'); return; }
-    if (tm.res[0] && tm.res[1]) logro('cientifico');
+    if (tmValida(tm.res[0], 0) && tmValida(tm.res[1], 1)) logro('cientifico');
     tmMostrar(r, tm.ejemplo ? 'ejemplo' : tm.modo);
   }
   function tmDibujarEspectro(r) {
@@ -2892,32 +2908,90 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
       svgEl('text', { 'class': 'gr-pico-t', x: Math.min(fx(r.f) + 6, 262), y: Math.max(yp - 4, 30) }, s).textContent = num(r.f, 1);
     }
   }
+  // ¿Qué midió? El temblor de todos, uno más fuerte, una sacudida a propósito, un movimiento grande,
+  // o (en la mesa) el celular quieto o movido. Límites para el giróscopo (°/s) y el acelerómetro (m/s²):
+  //   quieto: en la mesa, el sensor solo · poco: brazo apoyado · normal: tope del temblor de todos
+  //   grande: ya no es un temblor natural · crudo y pico: movimiento total (con la parte lenta) y pico
+  //   vivo / vivoMesa: aviso mientras mide
+  var TM_LIM = {
+    giro: { quieto: 0.4, poco: 0.25, normal: 4, grande: 12, crudo: 20, pico: 90, vivo: 60, vivoMesa: 3 },
+    acel: { quieto: 0.05, poco: 0, normal: 0.3, grande: 1, crudo: 1.5, pico: 6, vivo: 4, vivoMesa: 0.4 }
+  };
+  function tmLim(tipo) { return TM_LIM[tipo] || TM_LIM.giro; }
+  function tmClase(r, modo) {
+    var L = tmLim(r.tipo);
+    if (modo === 1) return r.rms <= L.quieto && r.crudo <= L.quieto * 4 ? 'mesa' : 'mesaMovida';
+    if (r.crudo > L.crudo || r.picoMov > L.pico || r.rms > L.grande) {
+      // Un vaivén parejo (casi toda la energía cerca de un ritmo) es una sacudida; si no, un movimiento cualquiera
+      return r.fDom && r.fDom >= 1.5 && r.ritmo >= 0.35 ? 'sacudida' : 'movimiento';
+    }
+    if (r.rms < L.poco) return 'poco';
+    if (r.rms > L.normal) return 'fuerte';
+    return 'normal';
+  }
+  // Mediciones que sirven para comparar brazo y mesa (y para el logro)
+  function tmValida(r, modo, paraComparar) {
+    if (!r) return false;
+    if (modo === 1) return r.clase === 'mesa';
+    return r.clase === 'normal' || r.clase === 'fuerte' || (!!paraComparar && r.clase === 'poco');
+  }
+  // ¿Hubo un movimiento grande en el último medio segundo?
+  function tmMovReciente() {
+    var v = tm.vivo, n = v.length;
+    if (!n) return false;
+    var L = tmLim(v[n - 1].tipo), lim = tm.modo === 1 ? L.vivoMesa : L.vivo;
+    for (var i = n - 1; i >= 0 && v[n - 1].t - v[i].t < 0.5; i--) {
+      if (Math.sqrt(v[i].x * v[i].x + v[i].y * v[i].y + v[i].z * v[i].z) > lim) return true;
+    }
+    return false;
+  }
   function tmMostrar(r, cual) {
     $('tmRes').hidden = false;
-    var giro = r.tipo === 'giro', unidad = giro ? ' °/s' : ' m/s²';
+    var giro = r.tipo === 'giro', unidad = giro ? ' °/s' : ' m/s²', clase = r.clase || 'normal';
+    var grande = clase === 'sacudida' || clase === 'movimiento';
+    // En un movimiento grande se muestra todo lo que se movió; en un temblor, solo la parte rápida
+    var inten = grande ? r.crudo : r.rms;
+    var fVer = clase === 'sacudida' ? r.fDom : clase === 'movimiento' ? null : r.f;
+    var amp = !giro || !fVer ? null : grande ? inten * Math.SQRT2 / (2 * Math.PI * fVer) : r.amp;
     $('tmRmsLbl').textContent = giro ? 'Intensidad (°/s)' : 'Intensidad (m/s²)';
-    $('tmHz').textContent = r.f ? num(r.f, 1) : '–';
-    $('tmRms').textContent = num(r.rms, r.rms < 10 ? 2 : 1);
-    $('tmAmp').textContent = giro && r.amp ? (r.amp < 0.01 ? '<0,01°' : num(r.amp, 2) + '°') : '–';
-    tmDibujarEspectro(r);
+    $('tmHz').textContent = fVer ? num(fVer, 1) : '–';
+    $('tmRms').textContent = num(inten, inten < 10 ? 2 : 1);
+    $('tmAmp').textContent = amp ? (amp < 0.01 ? '<0,01°' : num(amp, amp < 10 ? 2 : 0) + '°') : '–';
+    tmDibujarEspectro({ esp: r.esp, f: fVer });
     var t;
-    if (cual === 'ejemplo') {
+    if (clase === 'ejemplo' || cual === 'ejemplo') {
       t = 'Así se ve una medición de ejemplo: la mano va y viene unas ' + num(r.f, 1) + ' veces por segundo y se mueve apenas unas centésimas de grado. Por eso no se ve a simple vista.';
+    } else if (clase === 'mesa') {
+      t = 'Apoyado en la mesa casi no hay movimiento: lo que queda es el ruido propio del sensor. Compará con la medición con el brazo estirado.';
+    } else if (clase === 'mesaMovida') {
+      t = 'El celular se movió mientras medía. Para esta prueba tiene que quedar apoyado en la mesa, sin tocarlo: así se ve cuánto marca el sensor solo. Medí otra vez.';
+    } else if (clase === 'sacudida') {
+      t = 'Eso no fue el temblor de todos los días: el celular fue y vino unas ' + num(r.fDom, 1) + ' veces por segundo' +
+        (amp ? ', unos ' + (amp < 10 ? num(amp, 1) : Math.round(amp)) + '° para cada lado' : '') +
+        ', y el temblor natural es de centésimas de grado. ¿Lo hiciste a propósito? Para medir tu temblor, quedate lo más quieto que puedas y medí otra vez.';
+      if (r.fDom >= 3 && r.fDom <= 12) t += ' Un temblor así de grande, sin quererlo, se ve a simple vista: si a alguien le pasa seguido, lo tiene que ver un médico.';
+    } else if (clase === 'movimiento') {
+      t = 'Te moviste demasiado para medir el temblor: el sensor registró un movimiento grande, como mover el brazo, caminar o sacudir el celular, y el temblor natural es mucho más chico. Estirá el brazo sin apoyar el codo, quedate quieto y medí otra vez.';
     } else if (r.fs < 25) {
       t = 'Tu celular manda solo ' + Math.round(r.fs) + ' mediciones por segundo: no le alcanza para ver vaivenes de más de ' + Math.floor(r.fs / 2) + ' veces por segundo. Probá con otro navegador.';
-    } else if (cual === 1) {
-      t = 'Apoyado en la mesa casi no hay movimiento: lo que queda es el ruido propio del sensor. Compará con la medición con el brazo estirado.';
-    } else if (giro && r.rms < 0.25) {
+    } else if (clase === 'poco') {
       t = 'Casi no se movió. ¿Lo tenías apoyado? Probá con el brazo estirado y sin apoyar el codo.';
+    } else if (clase === 'fuerte') {
+      t = r.f
+        ? 'Tu mano fue y vino unas ' + num(r.f, 1) + ' veces por segundo, con más fuerza que el temblor común' + (amp ? ' (unos ' + num(amp, 2) + '°)' : '') +
+          '. Puede pasar por nervios, frío, cansancio, café o algún movimiento sin querer: medí otra vez bien quieto. Si alguien tiene un temblor que se ve a simple vista y no se le va, conviene consultarlo con un médico.'
+        : 'El celular se movió más que con el temblor natural, pero sin un ritmo claro. Medí otra vez bien quieto, con el brazo estirado y sin apoyar el codo.';
     } else {
       t = 'Tu mano fue y vino unas ' + num(r.f, 1) + ' veces por segundo' + (giro && r.amp ? ' y se movió apenas ' + (r.amp < 0.01 ? 'menos de una centésima de grado' : num(r.amp, 2) + '°') : '') +
         '. Es el temblor que tenemos todos: tan chico que no se ve. Suele aumentar con el cansancio, el frío, los nervios o el café.';
       if (r.f < 6.5 || r.f > 13.5) t += ' Esta vez el pico quedó lejos del rango típico: con el celular en la mano también se cuelan otros movimientos, así que conviene medir dos o tres veces.';
     }
     $('tmTexto').textContent = t;
+    // Brazo contra mesa: solo si las dos mediciones salieron bien
     var a = tm.res[0], b = tm.res[1];
-    $('tmComp').hidden = !(a && b && a.tipo === b.tipo);
-    if (a && b && a.tipo === b.tipo) {
+    var comparar = !!(a && b && a.tipo === b.tipo && tmValida(a, 0, true) && tmValida(b, 1));
+    $('tmComp').hidden = !comparar;
+    if (comparar) {
       $('tmC0').textContent = num(a.rms, 2) + unidad; $('tmC1').textContent = num(b.rms, 2) + unidad;
       var mx = Math.max(a.rms, b.rms, 0.001);
       $('tmB0').style.width = (a.rms / mx * 100).toFixed(1) + '%'; $('tmB1').style.width = (b.rms / mx * 100).toFixed(1) + '%';
@@ -3592,14 +3666,16 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
     m3dPintar();
   });
   /* ================= Portada: la mano tiembla, la cuchara no ================= */
-  // Un dibujo que se mueve solo: el mango tiembla unas 5 veces por segundo y la cuchara queda nivelada.
+  // Un dibujo que se mueve solo: el mango tiembla suave, unas 4 veces por segundo, y la cuchara queda nivelada.
   // Arriba, las dos inclinaciones dibujadas como en un osciloscopio. Con "Sin STEADYGRIP" se apagan los motores.
-  var HERO_N = 7, HERO_VENTANA = 2.4, HERO_RESTO = 0.3;   // con los motores queda cerca del 30 % del temblor
+  var HERO_N = 7, HERO_VENTANA = 2.4, HERO_RESTO = 0.2;   // con los motores queda cerca del 20 % del temblor
   var hero = { on: true, k: 1, t: 0, antes: 0, corre: false, visible: true, hist: [], lent: [], cae: [], tSuelta: 0 };
   var hMango = $('hMango'), hCuch = $('hCuch'), hLent = $('hLent'), hFall = $('hFall');
   function heroMano(t) {
-    var env = 5.5 + 2 * Math.sin(2 * Math.PI * 0.21 * t);
-    return { rapido: env * Math.sin(2 * Math.PI * 4.7 * t), lento: 3 * Math.sin(2 * Math.PI * 0.43 * t + 1) };
+    // Temblor tranquilo: de 1,4 a 3 grados, 4 veces por segundo, más un vaivén lento de la mano.
+    // (Antes era de 3,5 a 7,5 grados a 4,7 por segundo: se veía vibrar demasiado.)
+    var env = 2.2 + 0.8 * Math.sin(2 * Math.PI * 0.17 * t);
+    return { rapido: env * Math.sin(2 * Math.PI * 4 * t), lento: 3.5 * Math.sin(2 * Math.PI * 0.3 * t + 1) };
   }
   // Inclinación del mango y de la cuchara en el instante t; k va de 0 (motores apagados) a 1 (encendidos)
   function heroAngulos(t, k) {
@@ -3679,7 +3755,7 @@ div.psl{grid-template-columns:minmax(0, 1fr)}
     $('hOn').classList.toggle('on', on); $('hOn').setAttribute('aria-pressed', on ? 'true' : 'false');
     $('hOff').classList.toggle('on', !on); $('hOff').setAttribute('aria-pressed', on ? 'false' : 'true');
     $('hNota').textContent = on
-      ? 'La mano tiembla unas 5 veces por segundo. Los motores giran la cuchara al revés y las lentejas no se caen.'
+      ? 'La mano tiembla unas 4 veces por segundo. Los motores giran la cuchara al revés y las lentejas no se caen.'
       : 'Sin los motores, la cuchara tiembla igual que la mano y las lentejas se caen.';
     if (on) heroCargar();
     if (reduceMotion) heroFijo();
